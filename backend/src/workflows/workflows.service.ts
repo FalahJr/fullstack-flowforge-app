@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
-import { WorkflowEngineService } from "../workflow-engine/workflow-engine.service";
+import { QueueService } from "../queue/queue.service";
 import { CreateWorkflowDto } from "./dto/create-workflow.dto";
 import { UpdateWorkflowDto } from "./dto/update-workflow.dto";
 
@@ -15,7 +15,7 @@ export class WorkflowsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly engine: WorkflowEngineService,
+    private readonly queue: QueueService,
   ) {}
 
   health() {
@@ -124,26 +124,7 @@ export class WorkflowsService {
       },
     });
 
-    // Fire-and-forget execution
-    (async () => {
-      try {
-        const definition = version.definition as any;
-        await this.engine.runWorkflow(definition, {
-          workflowRunId: run.id,
-          tenantId,
-        });
-        await this.prisma.workflowRun.update({
-          where: { id: run.id },
-          data: { status: "SUCCESS", finishedAt: new Date() },
-        });
-      } catch (err) {
-        this.logger.error("Workflow run failed", err as any);
-        await this.prisma.workflowRun.update({
-          where: { id: run.id },
-          data: { status: "FAILED", finishedAt: new Date() },
-        });
-      }
-    })();
+    await this.queue.enqueueWorkflowRun(run.id);
 
     return run;
   }

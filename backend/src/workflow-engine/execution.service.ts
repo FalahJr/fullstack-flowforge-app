@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, StepRunStatus, WorkflowRunStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { AiService } from "../ai/ai.service";
+import { WorkflowEventsService } from "../events/workflow-events.service";
 import {
   DagParser,
   ParsedWorkflow,
@@ -32,6 +34,8 @@ export class ExecutionService {
     private readonly prisma: PrismaService,
     private readonly dagParser: DagParser,
     private readonly stepExecutor: StepExecutor,
+    private readonly aiService: AiService,
+    private readonly events: WorkflowEventsService,
   ) {}
 
   async execute(
@@ -100,6 +104,12 @@ export class ExecutionService {
           finishedAt: new Date(),
         },
       });
+
+      this.events.emit("workflow.completed", {
+        workflowRunId: workflowRun.id,
+        tenantId: workflowRun.tenantId,
+        status: workflowStatus,
+      });
     }
 
     return {
@@ -123,6 +133,15 @@ export class ExecutionService {
     const step = parsed.stepsById[stepId];
     const stepRun = await this.createStepRun(workflowRunId, context, stepId);
 
+    if (stepRun) {
+      this.events.emit("step.started", {
+        workflowRunId: stepRun.workflowRunId,
+        tenantId: stepRun.tenantId,
+        stepId,
+        status: "RUNNING",
+      });
+    }
+
     try {
       if (stepRun) {
         await this.prisma.stepRun.update({
@@ -145,12 +164,24 @@ export class ExecutionService {
             finishedAt: new Date(),
           },
         });
+
+        this.events.emit("step.success", {
+          workflowRunId: stepRun.workflowRunId,
+          tenantId: stepRun.tenantId,
+          stepId,
+          status: "SUCCESS",
+          output,
+        });
       }
 
       return { stepId, success: true, output };
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Step execution failed";
+      const aiHint = this.aiService.generateFailureHint(
+        step,
+        error as Error | string,
+      );
 
       if (stepRun) {
         await this.prisma.stepRun.update({
@@ -158,8 +189,21 @@ export class ExecutionService {
           data: {
             status: StepRunStatus.FAILED,
             error: message,
+            logs: {
+              error: message,
+              aiHint,
+            } as Prisma.InputJsonValue,
             finishedAt: new Date(),
           },
+        });
+
+        this.events.emit("step.failed", {
+          workflowRunId: stepRun.workflowRunId,
+          tenantId: stepRun.tenantId,
+          stepId,
+          status: "FAILED",
+          error: message,
+          aiHint,
         });
       }
 
