@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+backend/dist/
+frontend/.next/
+frontend/out/
+
+# Environment files
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Prisma generated client and cache
+backend/node_modules/.prisma/
+backend/prisma/migrations/*/steps.json
+
+# Temporary test files
+backend/tmp-*.js
+backend/tmp-*.ts
+
+
+
+# OS junk
+.DS_Store
+Thumbs.db

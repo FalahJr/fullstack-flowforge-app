@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum WorkflowRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum StepRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model Tenant {
+  id           String        @id @default(uuid())
+  name         String
+  users        User[]
+  workflows    Workflow[]
+  workflowRuns WorkflowRun[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(VIEWER)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Workflow {
+  id         String           @id @default(uuid())
+  name       String
+  tenantId   String
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  versions   WorkflowVersion[]
+  runs       WorkflowRun[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
+
+model WorkflowVersion {
+  id         String   @id @default(uuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  definition Json
+  version    Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([workflowId, version])
+}
+
+model WorkflowRun {
+  id          String            @id @default(uuid())
+  workflowId  String
+  workflow    Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tenantId    String
+  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  status      WorkflowRunStatus @default(PENDING)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  stepRuns    StepRun[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model StepRun {
+  id            String        @id @default(uuid())
+  workflowRunId String
+  workflowRun   WorkflowRun   @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  tenantId      String
+  stepId        String
+  status        StepRunStatus @default(PENDING)
+  logs          Json?
+  error         String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([workflowRunId])
+  @@index([tenantId])
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  message   String
+  level     String
+  createdAt DateTime @default(now())
+}
