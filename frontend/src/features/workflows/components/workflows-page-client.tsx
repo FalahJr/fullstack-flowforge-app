@@ -33,6 +33,28 @@ const DEFAULT_DEFINITION: WorkflowDefinition = {
   ],
 };
 
+const REVIEWER_SAMPLE_DEFINITION = {
+  steps: [
+    {
+      id: "fetch_data",
+      type: "http",
+      next: ["send_result"],
+      config: {
+        method: "GET",
+        url: "https://jsonplaceholder.typicode.com/todos/1",
+      },
+    },
+    {
+      id: "send_result",
+      type: "delay",
+      next: [],
+      config: {
+        durationMs: 1000,
+      },
+    },
+  ],
+};
+
 function formatDefinition(definition?: WorkflowDefinition) {
   return JSON.stringify(definition ?? DEFAULT_DEFINITION, null, 2);
 }
@@ -48,7 +70,9 @@ function parseDefinition(value: string) {
 export function WorkflowsPageClient() {
   const queryClient = useQueryClient();
   const [createName, setCreateName] = useState("");
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(
+    null,
+  );
   const [editName, setEditName] = useState("");
   const [definitionText, setDefinitionText] = useState(formatDefinition());
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -97,7 +121,9 @@ export function WorkflowsPageClient() {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
     },
     onError: (error: any) => {
-      setStatusMessage(error?.response?.data?.message ?? "Gagal membuat workflow");
+      setStatusMessage(
+        error?.response?.data?.message ?? "Gagal membuat workflow",
+      );
     },
   });
 
@@ -113,7 +139,9 @@ export function WorkflowsPageClient() {
       }
     },
     onError: (error: any) => {
-      setStatusMessage(error?.response?.data?.message ?? "Gagal menghapus workflow");
+      setStatusMessage(
+        error?.response?.data?.message ?? "Gagal menghapus workflow",
+      );
     },
   });
 
@@ -125,10 +153,15 @@ export function WorkflowsPageClient() {
     onSuccess: async ({ workflowId, run }) => {
       setStatusMessage(`Run dipicu: ${run.id}`);
       const runs = await listWorkflowRuns(workflowId);
-      queryClient.setQueryData<WorkflowRun[]>(["workflow-runs", workflowId], runs);
+      queryClient.setQueryData<WorkflowRun[]>(
+        ["workflow-runs", workflowId],
+        runs,
+      );
     },
     onError: (error: any) => {
-      setStatusMessage(error?.response?.data?.message ?? "Gagal memicu workflow");
+      setStatusMessage(
+        error?.response?.data?.message ?? "Gagal memicu workflow",
+      );
     },
   });
 
@@ -155,11 +188,19 @@ export function WorkflowsPageClient() {
     onSuccess: () => {
       setStatusMessage("Workflow berhasil disimpan");
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
-      queryClient.invalidateQueries({ queryKey: ["workflow", selectedWorkflowId] });
-      queryClient.invalidateQueries({ queryKey: ["workflow-runs", selectedWorkflowId] });
+      queryClient.invalidateQueries({
+        queryKey: ["workflow", selectedWorkflowId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["workflow-runs", selectedWorkflowId],
+      });
     },
     onError: (error: any) => {
-      setDefinitionError(error?.message ?? error?.response?.data?.message ?? "Gagal menyimpan workflow");
+      setDefinitionError(
+        error?.message ??
+          error?.response?.data?.message ??
+          "Gagal menyimpan workflow",
+      );
     },
   });
 
@@ -194,11 +235,16 @@ export function WorkflowsPageClient() {
               Kelola workflow dengan tampilan yang tenang dan rapi.
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Buat workflow, ubah definition JSON, jalankan workflow, lalu pantau run history dan realtime status tanpa layar yang berantakan.
+              Buat workflow, ubah definition JSON, jalankan workflow, lalu
+              pantau run history dan realtime status tanpa layar yang
+              berantakan.
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href="/login" className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+            <Link
+              href="/login"
+              className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
               Ganti akun
             </Link>
           </div>
@@ -206,16 +252,28 @@ export function WorkflowsPageClient() {
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Card className="p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Total workflow</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{workflows.length}</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+              Total workflow
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {workflows.length}
+            </p>
           </Card>
           <Card className="p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Workflow aktif</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{selectedWorkflow ? "1" : "0"}</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+              Workflow aktif
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {selectedWorkflow ? "1" : "0"}
+            </p>
           </Card>
           <Card className="p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Run terbaru</p>
-            <p className="mt-2 truncate text-2xl font-semibold text-slate-900">{activeRun?.id ?? "-"}</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+              Run terbaru
+            </p>
+            <p className="mt-2 truncate text-2xl font-semibold text-slate-900">
+              {activeRun?.id ?? "-"}
+            </p>
           </Card>
         </div>
       </header>
@@ -225,18 +283,30 @@ export function WorkflowsPageClient() {
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Buat workflow baru</h2>
-                <p className="text-sm text-slate-600">Workflow awal dibuat dengan definition kosong, lalu bisa diedit dari panel kanan.</p>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Buat workflow baru
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Workflow awal dibuat dengan definition kosong, lalu bisa
+                  diedit dari panel kanan.
+                </p>
               </div>
               <Badge variant="brand">CRUD</Badge>
             </div>
-            <form className="flex flex-col gap-3 sm:flex-row" onSubmit={onCreate}>
+            <form
+              className="flex flex-col gap-3 sm:flex-row"
+              onSubmit={onCreate}
+            >
               <Input
                 placeholder="Nama workflow"
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
               />
-              <Button className="sm:min-w-28" disabled={createMutation.isPending} type="submit">
+              <Button
+                className="sm:min-w-28"
+                disabled={createMutation.isPending}
+                type="submit"
+              >
                 Buat workflow
               </Button>
             </form>
@@ -249,8 +319,16 @@ export function WorkflowsPageClient() {
           ) : null}
 
           <div className="space-y-3">
-            {workflowsQuery.isLoading ? <Card className="p-6 text-sm text-slate-600">Memuat workflows...</Card> : null}
-            {workflowsQuery.isError ? <Card className="p-6 text-sm text-rose-600">Gagal memuat workflows</Card> : null}
+            {workflowsQuery.isLoading ? (
+              <Card className="p-6 text-sm text-slate-600">
+                Memuat workflows...
+              </Card>
+            ) : null}
+            {workflowsQuery.isError ? (
+              <Card className="p-6 text-sm text-rose-600">
+                Gagal memuat workflows
+              </Card>
+            ) : null}
             {workflowCards.length === 0 && !workflowsQuery.isLoading ? (
               <EmptyState
                 title="Belum ada workflow"
@@ -271,11 +349,19 @@ export function WorkflowsPageClient() {
                       type="button"
                     >
                       <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold text-slate-900">{workflow.name}</h3>
-                        {isActive ? <Badge variant="success">Aktif</Badge> : null}
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          {workflow.name}
+                        </h3>
+                        {isActive ? (
+                          <Badge variant="success">Aktif</Badge>
+                        ) : null}
                       </div>
-                      <p className="mt-1 text-sm text-slate-500">{stepCount} langkah pada versi terbaru</p>
-                      <p className="mt-1 text-xs text-slate-400">ID: {workflow.id}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {stepCount} langkah pada versi terbaru
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        ID: {workflow.id}
+                      </p>
                     </button>
 
                     <div className="flex flex-wrap gap-2">
@@ -317,10 +403,16 @@ export function WorkflowsPageClient() {
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Editor workflow</h2>
-                <p className="text-sm text-slate-600">Ubah nama dan definition JSON dari workflow yang dipilih.</p>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Editor workflow
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Ubah nama dan definition JSON dari workflow yang dipilih.
+                </p>
               </div>
-              <Badge variant={selectedWorkflow ? "brand" : "neutral"}>{selectedWorkflow ? "Terpilih" : "Belum pilih"}</Badge>
+              <Badge variant={selectedWorkflow ? "brand" : "neutral"}>
+                {selectedWorkflow ? "Terpilih" : "Belum pilih"}
+              </Badge>
             </div>
 
             {!selectedWorkflow ? (
@@ -382,8 +474,62 @@ export function WorkflowsPageClient() {
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Run terbaru</h2>
-                <p className="text-sm text-slate-600">Riwayat terbaru untuk workflow yang dipilih.</p>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Contoh format Workflow definition JSON
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Ini contoh yang bisa dipakai reviewer untuk testing cepat.
+                  Struktur minimalnya adalah array{" "}
+                  <span className="font-semibold">steps</span>.
+                </p>
+              </div>
+              <Badge variant="neutral">Sample</Badge>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-xs leading-6 text-slate-100 shadow-inner">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono">
+                {JSON.stringify(REVIEWER_SAMPLE_DEFINITION, null, 2)}
+              </pre>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  id
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  Identifier unik untuk setiap step.
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  type
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  Contoh: <span className="font-mono text-xs">http</span> atau{" "}
+                  <span className="font-mono text-xs">delay</span>.
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  next
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  Array step berikutnya yang dieksekusi.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Run terbaru
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Riwayat terbaru untuk workflow yang dipilih.
+                </p>
               </div>
               <Badge variant="neutral">REST</Badge>
             </div>
@@ -393,22 +539,41 @@ export function WorkflowsPageClient() {
             ) : workflowRunsQuery.data?.length ? (
               <div className="space-y-3">
                 {workflowRunsQuery.data.map((run) => (
-                  <div key={run.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div
+                    key={run.id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{run.id}</p>
-                        <p className="text-xs text-slate-500">{run.createdAt}</p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {run.id}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {run.createdAt}
+                        </p>
                       </div>
-                      <Badge variant={run.status === "SUCCESS" ? "success" : run.status === "FAILED" ? "danger" : "warning"}>
+                      <Badge
+                        variant={
+                          run.status === "SUCCESS"
+                            ? "success"
+                            : run.status === "FAILED"
+                              ? "danger"
+                              : "warning"
+                        }
+                      >
                         {run.status}
                       </Badge>
                     </div>
-                    <p className="mt-3 text-xs text-slate-600">Step run: {run._count?.stepRuns ?? 0}</p>
+                    <p className="mt-3 text-xs text-slate-600">
+                      Step run: {run._count?.stepRuns ?? 0}
+                    </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">Belum ada run untuk workflow ini.</p>
+              <p className="text-sm text-slate-500">
+                Belum ada run untuk workflow ini.
+              </p>
             )}
           </Card>
         </aside>
