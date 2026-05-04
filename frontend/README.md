@@ -1,46 +1,54 @@
 # FlowForge Frontend
 
-Frontend dashboard untuk FlowForge menggunakan Next.js + TypeScript.
+Frontend dashboard for FlowForge using Next.js + TypeScript.
 
-## Fitur yang sudah tersedia (MVP awal Prioritas 4)
+## Features (MVP - Priority 4)
 
-- Login dan register
-- Daftar workflow
-- Buat, hapus, dan trigger workflow run
-- Monitoring run hybrid:
-  - Baseline data via REST (`/workflows/:id/runs`, `/workflows/:id/runs/:runId`)
-  - Update realtime via WebSocket (`workflow.started`, `step.*`, `workflow.completed`)
-- Menampilkan logs, error, dan AI hint
+- Login and register
+- Workflow list
+- Create, delete, and trigger workflow runs
+- Hybrid run monitoring:
+  - Baseline via REST (`/workflows/:id/runs`, `/workflows/:id/runs/:runId`)
+  - Realtime updates via WebSocket (`workflow.started`, `step.*`, `workflow.completed`)
+- Display logs, errors, and AI hints
 
-## Menjalankan lokal
+## Running locally
 
-1. Pastikan backend berjalan di `http://localhost:3000`
-2. Salin env:
+1. Ensure the backend is running at `http://localhost:3001`
+2. Copy environment file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-3. Install dependency dan jalankan:
+3. Install dependencies and start dev server:
 
 ```bash
 npm install
 npm run dev
 ```
 
-4. Buka `http://localhost:3001` jika port default frontend dipakai berbeda, atau cek output terminal.
+4. Open `http://localhost:3000`.
 
-## Build produksi
+## Reviewer notes
+
+- Default frontend API endpoint: `http://localhost:3001`
+- Workflows page: `http://localhost:3000/workflows`
+- When running via Docker, follow the root README and use `./scripts/docker-dev.sh`
+
+## Production build
 
 ```bash
 npm run build
 npm run start
 ```
 
-## Struktur utama
+## Key structure
 
-- `src/app/(auth)` halaman login/register
-- `src/app/(dashboard)/workflows` halaman workflow list
-- `src/app/(dashboard)/workflows/[id]/runs/[runId]` halaman monitor run
-- `src/services` API client, workflow service, dan socket service
-- `src/features` komponen auth dan workflows
+- `src/app/(auth)` pages for login/register
+- `src/app/(dashboard)/workflows` workflow list page
+- `src/app/(dashboard)/workflows/[id]/runs/[runId]` run monitor page
+- `src/services` API client, workflow service, and socket service
+- `src/features` auth and workflow components
+
+See the root [README](../README.md) for workflow examples and full project documentation.

@@ -5,12 +5,16 @@ const prisma = new PrismaClient();
 
 (async () => {
   try {
-    const base = "http://localhost:3000";
+    const base =
+      process.env.FLOWFORGE_API_BASE_URL ||
+      process.env.BACKEND_BASE_URL ||
+      "http://localhost:3001";
     const stamp = Date.now();
     const email = `test-${stamp}@example.com`;
     const password = "secret123";
     const tenantName = `test-tenant-${stamp}`;
 
+    console.log("API BASE ->", base);
     console.log("REGISTER ->", email);
     const regRes = await axios.post(
       `${base}/auth/register`,
@@ -88,6 +92,7 @@ const prisma = new PrismaClient();
       console.log("STEP_RUN_LOGS", JSON.stringify(stepRun.logs, null, 2));
     }
 
+    console.log("PASS run_test_priority3");
     await prisma.$disconnect();
     process.exit(0);
   } catch (err) {

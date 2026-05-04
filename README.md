@@ -229,6 +229,30 @@ docker-compose exec backend npx prisma studio
 5. Trigger execution
 6. Monitor real-time updates
 
+### Reviewer Testing Scripts (Backend)
+
+Run these from `backend/` after backend + database are running:
+
+```bash
+# Default API base is http://localhost:3001
+node scripts/verify_phase1_3.js
+node scripts/run_test_priority3.js
+node scripts/ws_trigger_and_listen.js
+```
+
+Optional override when backend runs on another URL:
+
+```bash
+FLOWFORGE_API_BASE_URL=http://localhost:3001 node scripts/verify_phase1_3.js
+FLOWFORGE_WS_URL=http://localhost:3001/ws node scripts/ws_trigger_and_listen.js
+```
+
+Success markers in logs:
+
+- `PASS verify_phase1_3`
+- `PASS run_test_priority3`
+- `PASS ws_trigger_and_listen` (or timeout if no websocket event received)
+
 ### Example Workflow
 
 ```json
@@ -331,6 +355,16 @@ docker-compose down
 - [🧠 Backend Architecture](./backend/CLAUDE.md)
 - [🎨 Frontend Guidelines](./frontend/CLAUDE.md)
 - [⚙️ Workflow Engine Docs](./backend/docs/workflow-engine.md)
+- [🧪 Backend Local Guide](./backend/README.md)
+
+---
+
+## ⚖️ Trade-offs & Scope Assumptions
+
+- This project prioritizes a working orchestration flow over broad abstractions.
+- Frontend testing remains manual for now; automated testing focus starts from backend core logic.
+- Queue, websocket, and AI are implemented in practical baseline form; advanced resilience and optimization are intentionally out of scope for this phase.
+- Reviewer handoff is optimized through runnable scripts and clear local/Docker guides rather than full production-hardening.
 
 ---
 
@@ -364,6 +398,174 @@ This project is part of a technical assessment.
 ## 📞 Support
 
 For issues, questions, or feedback:
+
+---
+
+## Workflow Examples (Reviewer Samples)
+
+Below are several workflow definition examples you can paste into the "Workflow definition JSON" editor in the UI or submit via the API. They demonstrate common scenarios: a safe demo pipeline, a failure case, parallel execution, and a delay chain for realtime demoing.
+
+1. Workflow: Simple API Pipeline (RECOMMENDED)
+
+This is the safest demo to run.
+
+```json
+{
+  "steps": [
+    {
+      "id": "fetch_data",
+      "type": "http",
+      "config": {
+        "url": "https://httpbin.org/get",
+        "method": "GET"
+      },
+      "next": ["process_delay"]
+    },
+    {
+      "id": "process_delay",
+      "type": "delay",
+      "config": {
+        "durationMs": 2000
+      },
+      "next": ["send_result"]
+    },
+    {
+      "id": "send_result",
+      "type": "http",
+      "config": {
+        "url": "https://httpbin.org/post",
+        "method": "POST"
+      },
+      "next": []
+    }
+  ]
+}
+```
+
+Expected outcome:
+
+- All steps succeed
+- Visible delay between steps to showcase realtime updates in the dashboard
+
+2. Workflow: Failure Case (REQUIRED)
+
+Use this to demonstrate error handling in the engine.
+
+```json
+{
+  "steps": [
+    {
+      "id": "fetch_data",
+      "type": "http",
+      "config": {
+        "url": "https://invalid-domain-flowforge-demo.xyz",
+        "method": "GET"
+      },
+      "next": ["send_result"]
+    },
+    {
+      "id": "send_result",
+      "type": "http",
+      "config": {
+        "url": "https://httpbin.org/post",
+        "method": "POST"
+      },
+      "next": []
+    }
+  ]
+}
+```
+
+Expected outcome:
+
+- The first step fails and the workflow stops
+
+3. Workflow: Parallel Execution (BONUS)
+
+If your engine supports multiple `next` targets, this demonstrates concurrency.
+
+```json
+{
+  "steps": [
+    {
+      "id": "start",
+      "type": "http",
+      "config": {
+        "url": "https://httpbin.org/get",
+        "method": "GET"
+      },
+      "next": ["task_a", "task_b"]
+    },
+    {
+      "id": "task_a",
+      "type": "delay",
+      "config": {
+        "durationMs": 3000
+      },
+      "next": ["end"]
+    },
+    {
+      "id": "task_b",
+      "type": "delay",
+      "config": {
+        "durationMs": 1000
+      },
+      "next": ["end"]
+    },
+    {
+      "id": "end",
+      "type": "http",
+      "config": {
+        "url": "https://httpbin.org/post",
+        "method": "POST"
+      },
+      "next": []
+    }
+  ]
+}
+```
+
+Behavior to observe:
+
+- `task_a` and `task_b` run in parallel
+- `task_b` finishes earlier
+- `end` runs after both complete (if engine correctly waits for dependencies)
+
+4. Workflow: Delay Chain (Realtime demo)
+
+Good for showcasing step-by-step realtime UI updates.
+
+```json
+{
+  "steps": [
+    {
+      "id": "step_1",
+      "type": "delay",
+      "config": { "durationMs": 1000 },
+      "next": ["step_2"]
+    },
+    {
+      "id": "step_2",
+      "type": "delay",
+      "config": { "durationMs": 2000 },
+      "next": ["step_3"]
+    },
+    {
+      "id": "step_3",
+      "type": "delay",
+      "config": { "durationMs": 3000 },
+      "next": []
+    }
+  ]
+}
+```
+
+Expected outcome:
+
+- Steps light up sequentially in the dashboard via WebSocket events
+- Useful for demonstrating realtime monitoring
+
+Copy any of the JSON blocks above into the editor and save to run a quick demo.
 
 1. Check [DOCKER_SETUP.md](./DOCKER_SETUP.md) troubleshooting section
 2. Review [Backend Guide](./backend/CLAUDE.md)

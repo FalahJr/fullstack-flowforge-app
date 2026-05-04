@@ -15,10 +15,16 @@ const { PrismaClient } = require("@prisma/client");
       process.exit(2);
     }
 
-    const base = "http://localhost:3000";
+    const base =
+      process.env.FLOWFORGE_API_BASE_URL ||
+      process.env.BACKEND_BASE_URL ||
+      "http://localhost:3001";
+    const wsUrl = process.env.FLOWFORGE_WS_URL || `${base}/ws`;
     const email = user.email;
     const password = "secret123";
 
+    console.log("API BASE ->", base);
+    console.log("WS URL   ->", wsUrl);
     console.log("Login as", email);
     const loginRes = await axios.post(
       `${base}/auth/login`,
@@ -42,7 +48,7 @@ const { PrismaClient } = require("@prisma/client");
 
     console.log("Using workflow", workflow.id);
 
-    const socket = io("http://localhost:3000/ws", {
+    const socket = io(wsUrl, {
       transports: ["websocket"],
     });
 
@@ -59,6 +65,7 @@ const { PrismaClient } = require("@prisma/client");
     socket.on("step.success", (p) => console.log("WS step.success", p));
     socket.on("step.failed", (p) => {
       console.log("WS step.failed", p);
+      console.log("PASS ws_trigger_and_listen");
       process.exit(0);
     });
 
