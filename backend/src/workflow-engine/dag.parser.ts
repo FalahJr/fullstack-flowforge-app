@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from "@nestjs/common";
 
-export type WorkflowStepType = 'http' | 'delay';
+export type WorkflowStepType = "http" | "delay";
 
 export interface WorkflowStepDefinition {
   id: string;
@@ -25,11 +25,13 @@ export interface ParsedWorkflow {
 export class DagParser {
   parse(definition: WorkflowDefinition): ParsedWorkflow {
     if (!definition || !Array.isArray(definition.steps)) {
-      throw new BadRequestException('Workflow definition must contain steps');
+      throw new BadRequestException("Definisi workflow harus berisi steps");
     }
 
     if (definition.steps.length === 0) {
-      throw new BadRequestException('Workflow must have at least one step');
+      throw new BadRequestException(
+        "Workflow harus memiliki setidaknya satu langkah",
+      );
     }
 
     const stepsById: Record<string, WorkflowStepDefinition> = {};
@@ -38,7 +40,7 @@ export class DagParser {
       this.validateStepShape(step);
 
       if (stepsById[step.id]) {
-        throw new BadRequestException(`Duplicate step id: ${step.id}`);
+        throw new BadRequestException(`ID langkah duplikat: ${step.id}`);
       }
 
       stepsById[step.id] = {
@@ -52,7 +54,7 @@ export class DagParser {
       for (const nextId of step.next) {
         if (!stepsById[nextId]) {
           throw new BadRequestException(
-            `Step ${step.id} references unknown next step: ${nextId}`,
+            `Langkah ${step.id} merujuk pada langkah berikut yang tidak dikenal: ${nextId}`,
           );
         }
       }
@@ -78,7 +80,7 @@ export class DagParser {
 
     const visit = (stepId: string) => {
       if (active.has(stepId)) {
-        throw new BadRequestException('Workflow DAG contains a cycle');
+        throw new BadRequestException("DAG workflow mengandung siklus");
       }
 
       if (visited.has(stepId)) {
@@ -107,7 +109,9 @@ export class DagParser {
       .map((step) => step.id);
 
     if (rootStepIds.length === 0) {
-      throw new BadRequestException('Workflow must have at least one root step');
+      throw new BadRequestException(
+        "Workflow harus memiliki setidaknya satu langkah root",
+      );
     }
 
     return {
@@ -120,16 +124,22 @@ export class DagParser {
   }
 
   private validateStepShape(step: WorkflowStepDefinition) {
-    if (!step || typeof step.id !== 'string' || step.id.trim().length === 0) {
-      throw new BadRequestException('Each step must have a valid id');
+    if (!step || typeof step.id !== "string" || step.id.trim().length === 0) {
+      throw new BadRequestException(
+        "Setiap langkah harus memiliki id yang valid",
+      );
     }
 
-    if (step.type !== 'http' && step.type !== 'delay') {
-      throw new BadRequestException(`Unsupported step type: ${step.type}`);
+    if (step.type !== "http" && step.type !== "delay") {
+      throw new BadRequestException(
+        `Tipe langkah tidak didukung: ${step.type}`,
+      );
     }
 
     if (!Array.isArray(step.next)) {
-      throw new BadRequestException(`Step ${step.id} must define next as an array`);
+      throw new BadRequestException(
+        `Langkah ${step.id} harus mendefinisikan next sebagai array`,
+      );
     }
   }
 }

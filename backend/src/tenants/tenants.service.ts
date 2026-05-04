@@ -31,7 +31,7 @@ export class TenantsService {
     });
 
     if (!tenant) {
-      throw new NotFoundException("Tenant not found");
+      throw new NotFoundException("Tenant tidak ditemukan");
     }
 
     return tenant;
@@ -67,7 +67,7 @@ export class TenantsService {
 
   private assertTenantId(tenantId: string) {
     if (!tenantId || tenantId.trim().length === 0) {
-      throw new BadRequestException("tenantId is required");
+      throw new BadRequestException("tenantId diperlukan");
     }
   }
 }

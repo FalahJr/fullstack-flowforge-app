@@ -4,10 +4,13 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { QueueService } from "../queue/queue.service";
+import { DagParser, WorkflowDefinition } from "../workflow-engine/dag.parser";
 import { CreateWorkflowDto } from "./dto/create-workflow.dto";
 import { UpdateWorkflowDto } from "./dto/update-workflow.dto";
+import { UpdateWorkflowDefinitionDto } from "./dto/update-workflow-definition.dto";
 
 @Injectable()
 export class WorkflowsService {
@@ -16,6 +19,7 @@ export class WorkflowsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly queue: QueueService,
+    private readonly dagParser: DagParser,
   ) {}
 
   health() {
@@ -51,6 +55,12 @@ export class WorkflowsService {
     return this.prisma.workflow.findMany({
       where: { tenantId },
       orderBy: { createdAt: "desc" },
+      include: {
+        versions: {
+          orderBy: { version: "desc" },
+          take: 1,
+        },
+      },
     });
   }
 
@@ -70,9 +80,53 @@ export class WorkflowsService {
       },
     });
 
-    if (!workflow) throw new NotFoundException("Workflow not found");
+    if (!workflow) throw new NotFoundException("Workflow tidak ditemukan");
 
     return workflow;
+  }
+
+  async findRuns(workflowId: string, tenantId: string) {
+    this.assertTenantId(tenantId);
+    await this.findOne(workflowId, tenantId);
+
+    return this.prisma.workflowRun.findMany({
+      where: {
+        workflowId,
+        tenantId,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: {
+          select: {
+            stepRuns: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findRunDetail(workflowId: string, runId: string, tenantId: string) {
+    this.assertTenantId(tenantId);
+    await this.findOne(workflowId, tenantId);
+
+    const run = await this.prisma.workflowRun.findFirst({
+      where: {
+        id: runId,
+        workflowId,
+        tenantId,
+      },
+      include: {
+        stepRuns: {
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
+
+    if (!run) {
+      throw new NotFoundException("Workflow run tidak ditemukan");
+    }
+
+    return run;
   }
 
   async update(workflowId: string, tenantId: string, dto: UpdateWorkflowDto) {
@@ -88,6 +142,29 @@ export class WorkflowsService {
         },
       },
     });
+  }
+
+  async updateDefinition(
+    workflowId: string,
+    tenantId: string,
+    dto: UpdateWorkflowDefinitionDto,
+  ) {
+    const workflow = await this.findOne(workflowId, tenantId);
+    const definition = dto.definition as unknown as WorkflowDefinition;
+
+    this.dagParser.parse(definition);
+
+    const latestVersion = workflow.versions?.[0]?.version ?? 0;
+
+    await this.prisma.workflowVersion.create({
+      data: {
+        workflowId,
+        definition: definition as unknown as Prisma.InputJsonValue,
+        version: latestVersion + 1,
+      },
+    });
+
+    return this.findOne(workflowId, tenantId);
   }
 
   async remove(workflowId: string, tenantId: string) {
@@ -111,9 +188,9 @@ export class WorkflowsService {
       include: { versions: { orderBy: { version: "desc" }, take: 1 } },
     });
 
-    if (!workflow) throw new NotFoundException("Workflow not found");
+    if (!workflow) throw new NotFoundException("Workflow tidak ditemukan");
     const version = workflow.versions && workflow.versions[0];
-    if (!version) throw new NotFoundException("Workflow has no versions");
+    if (!version) throw new NotFoundException("Workflow tidak memiliki versi");
 
     const run = await this.prisma.workflowRun.create({
       data: {
@@ -131,7 +208,7 @@ export class WorkflowsService {
 
   private assertTenantId(tenantId: string) {
     if (!tenantId || tenantId.trim().length === 0) {
-      throw new BadRequestException("tenantId is required");
+      throw new BadRequestException("tenantId diperlukan");
     }
   }
 }

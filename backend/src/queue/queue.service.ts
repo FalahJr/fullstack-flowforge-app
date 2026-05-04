@@ -29,7 +29,7 @@ export class QueueService implements OnModuleDestroy {
       QUEUE_NAME,
       async (job) => {
         if (!job?.data) {
-          throw new Error("Workflow job payload is missing");
+          throw new Error("Payload pekerjaan workflow hilang");
         }
         return this.processJob(job.data);
       },
@@ -41,14 +41,14 @@ export class QueueService implements OnModuleDestroy {
     this.worker.on("failed", (job, err) => {
       const jobId = job?.id ?? "unknown";
       this.logger.error(
-        `Workflow job failed: ${jobId}`,
+        `Pekerjaan workflow gagal: ${jobId}`,
         err?.message ?? String(err),
       );
     });
 
     this.worker.on("completed", (job) => {
       const jobId = job?.id ?? "unknown";
-      this.logger.log(`Workflow job completed: ${jobId}`);
+      this.logger.log(`Pekerjaan workflow selesai: ${jobId}`);
     });
   }
 
@@ -83,7 +83,7 @@ export class QueueService implements OnModuleDestroy {
     });
 
     if (!run) {
-      throw new Error(`WorkflowRun ${data.workflowRunId} not found`);
+      throw new Error(`WorkflowRun ${data.workflowRunId} tidak ditemukan`);
     }
 
     const latestVersion = run.workflow.versions?.[0];
@@ -92,7 +92,7 @@ export class QueueService implements OnModuleDestroy {
         where: { id: run.id },
         data: { status: "FAILED", finishedAt: new Date() },
       });
-      throw new Error("Workflow has no versions");
+      throw new Error("Workflow tidak memiliki versi");
     }
 
     const definition =
@@ -101,6 +101,7 @@ export class QueueService implements OnModuleDestroy {
       workflowRunId: run.id,
       tenantId: run.tenantId,
       status: "RUNNING",
+      message: "Workflow dimulai",
     });
 
     try {
@@ -118,6 +119,7 @@ export class QueueService implements OnModuleDestroy {
         workflowRunId: run.id,
         tenantId: run.tenantId,
         status: "FAILED",
+        message: "Workflow selesai: Gagal",
       });
       throw error;
     }

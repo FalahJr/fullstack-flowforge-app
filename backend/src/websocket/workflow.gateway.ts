@@ -53,7 +53,7 @@ export class WorkflowGateway implements OnGatewayInit {
       return { success: true, room };
     }
 
-    return { success: false, message: "tenantId required" };
+    return { success: false, message: "tenantId diperlukan" };
   }
 
   private broadcast(event: string, payload: WorkflowEventPayload) {

@@ -16,6 +16,7 @@ export interface WorkflowEventPayload {
   output?: unknown;
   error?: string;
   aiHint?: string;
+  message?: string;
 }
 
 @Injectable()

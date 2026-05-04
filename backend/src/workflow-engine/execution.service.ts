@@ -109,6 +109,9 @@ export class ExecutionService {
         workflowRunId: workflowRun.id,
         tenantId: workflowRun.tenantId,
         status: workflowStatus,
+        message: `Workflow selesai: ${
+          workflowStatus === WorkflowRunStatus.SUCCESS ? "Berhasil" : "Gagal"
+        }`,
       });
     }
 
@@ -139,6 +142,7 @@ export class ExecutionService {
         tenantId: stepRun.tenantId,
         stepId,
         status: "RUNNING",
+        message: `Langkah ${stepId} dimulai`,
       });
     }
 
@@ -171,14 +175,15 @@ export class ExecutionService {
           stepId,
           status: "SUCCESS",
           output,
+          message: `Langkah ${stepId} berhasil`,
         });
       }
 
       return { stepId, success: true, output };
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Step execution failed";
-      const aiHint = this.aiService.generateFailureHint(
+        error instanceof Error ? error.message : "Eksekusi langkah gagal";
+      const aiHint = await this.aiService.generateFailureHint(
         step,
         error as Error | string,
       );
@@ -204,6 +209,7 @@ export class ExecutionService {
           status: "FAILED",
           error: message,
           aiHint,
+          message: `Langkah ${stepId} gagal: ${message}`,
         });
       }
 
@@ -230,7 +236,7 @@ export class ExecutionService {
 
     throw lastError instanceof Error
       ? lastError
-      : new Error("Step execution failed");
+      : new Error("Eksekusi langkah gagal");
   }
 
   private async createWorkflowRun(context: WorkflowExecutionContext) {

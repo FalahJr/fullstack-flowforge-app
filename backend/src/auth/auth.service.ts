@@ -31,7 +31,7 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(dto.email);
 
     if (existingUser) {
-      throw new ConflictException("Email already exists");
+      throw new ConflictException("Email sudah terdaftar");
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -54,13 +54,13 @@ export class AuthService {
     const user = await this.usersService.findByEmail(dto.email);
 
     if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException("Kredensial tidak valid");
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException("Kredensial tidak valid");
     }
 
     return this.buildAuthResponse(

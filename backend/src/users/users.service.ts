@@ -46,7 +46,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException("Pengguna tidak ditemukan");
     }
 
     return user;
@@ -74,7 +74,7 @@ export class UsersService {
 
     const existingUser = await this.findByEmail(dto.email);
     if (existingUser) {
-      throw new ConflictException("Email already exists");
+      throw new ConflictException("Email sudah terdaftar");
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -127,7 +127,9 @@ export class UsersService {
       });
 
       if (adminCount <= 1) {
-        throw new BadRequestException("Cannot delete the last admin in tenant");
+        throw new BadRequestException(
+          "Tidak dapat menghapus admin terakhir di tenant",
+        );
       }
     }
 
@@ -172,7 +174,7 @@ export class UsersService {
 
   private assertTenantId(tenantId: string) {
     if (!tenantId || tenantId.trim().length === 0) {
-      throw new BadRequestException("tenantId is required");
+      throw new BadRequestException("tenantId diperlukan");
     }
   }
 }

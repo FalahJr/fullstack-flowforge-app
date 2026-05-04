@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import axios from 'axios';
-import { WorkflowStepDefinition } from './dag.parser';
+import { Injectable } from "@nestjs/common";
+import axios from "axios";
+import { WorkflowStepDefinition } from "./dag.parser";
 
 export interface StepExecutionResult {
   success: boolean;
@@ -10,13 +10,13 @@ export interface StepExecutionResult {
 @Injectable()
 export class StepExecutor {
   async execute(step: WorkflowStepDefinition): Promise<StepExecutionResult> {
-    if (step.type === 'http') {
-      const url = this.readStringConfig(step, 'url');
-      const method = this.readStringConfig(step, 'method', 'GET').toLowerCase();
+    if (step.type === "http") {
+      const url = this.readStringConfig(step, "url");
+      const method = this.readStringConfig(step, "method", "GET").toLowerCase();
 
       const response = await axios.request({
         url,
-        method: method as 'get' | 'post' | 'put' | 'patch' | 'delete',
+        method: method as "get" | "post" | "put" | "patch" | "delete",
       });
 
       return {
@@ -28,8 +28,8 @@ export class StepExecutor {
       };
     }
 
-    if (step.type === 'delay') {
-      const durationMs = this.readNumberConfig(step, 'durationMs', 1000);
+    if (step.type === "delay") {
+      const durationMs = this.readNumberConfig(step, "durationMs", 1000);
       await this.sleep(durationMs);
 
       return {
@@ -38,7 +38,7 @@ export class StepExecutor {
       };
     }
 
-    throw new Error(`Unsupported step type: ${step.type}`);
+    throw new Error(`Tipe langkah tidak didukung: ${step.type}`);
   }
 
   private readStringConfig(
@@ -48,7 +48,7 @@ export class StepExecutor {
   ) {
     const value = step.config?.[key];
 
-    if (typeof value === 'string' && value.trim().length > 0) {
+    if (typeof value === "string" && value.trim().length > 0) {
       return value;
     }
 
@@ -56,7 +56,7 @@ export class StepExecutor {
       return fallback;
     }
 
-    throw new Error(`Missing config value ${key} for step ${step.id}`);
+    throw new Error(`Nilai konfigurasi ${key} hilang untuk langkah ${step.id}`);
   }
 
   private readNumberConfig(
@@ -66,7 +66,7 @@ export class StepExecutor {
   ) {
     const value = step.config?.[key];
 
-    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
       return value;
     }
 
