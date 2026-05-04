@@ -2,7 +2,7 @@
 
 Frontend dashboard for FlowForge using Next.js + TypeScript.
 
-## Features (MVP - Priority 4)
+## Features (MVP)
 
 - Login and register
 - Workflow list
