@@ -116,6 +116,12 @@ export class WorkflowsService {
         tenantId,
       },
       include: {
+        workflow: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         stepRuns: {
           orderBy: { createdAt: "asc" },
         },

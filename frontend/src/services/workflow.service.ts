@@ -51,6 +51,10 @@ export type StepRun = {
 };
 
 export type WorkflowRunDetail = WorkflowRun & {
+  workflow?: {
+    id: string;
+    name: string;
+  };
   stepRuns: StepRun[];
 };
 
@@ -74,7 +78,10 @@ export async function updateWorkflow(id: string, name: string) {
   return response.data;
 }
 
-export async function updateWorkflowDefinition(id: string, definition: WorkflowDefinition) {
+export async function updateWorkflowDefinition(
+  id: string,
+  definition: WorkflowDefinition,
+) {
   const response = await api.patch<Workflow>(`/workflows/${id}/definition`, {
     definition,
   });
@@ -82,7 +89,9 @@ export async function updateWorkflowDefinition(id: string, definition: WorkflowD
 }
 
 export async function deleteWorkflow(id: string) {
-  const response = await api.delete<{ success: boolean; id: string }>(`/workflows/${id}`);
+  const response = await api.delete<{ success: boolean; id: string }>(
+    `/workflows/${id}`,
+  );
   return response.data;
 }
 
@@ -97,6 +106,8 @@ export async function listWorkflowRuns(id: string) {
 }
 
 export async function getWorkflowRunDetail(id: string, runId: string) {
-  const response = await api.get<WorkflowRunDetail>(`/workflows/${id}/runs/${runId}`);
+  const response = await api.get<WorkflowRunDetail>(
+    `/workflows/${id}/runs/${runId}`,
+  );
   return response.data;
 }

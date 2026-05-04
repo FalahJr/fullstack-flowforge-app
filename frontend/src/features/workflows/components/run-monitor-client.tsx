@@ -113,18 +113,27 @@ export function RunMonitorClient({
         }))
       : [];
 
-    const dedupedBaseline = baselineEvents.filter(
-      (baselineEvent) =>
-        !liveEvents.some(
-          (liveEvent) =>
-            liveEvent.stepId === baselineEvent.stepId &&
-            liveEvent.status === baselineEvent.status,
-        ),
+    const mergedEvents = [...liveEvents, ...baselineEvents].filter(
+      (event) => event.workflowRunId === resolvedRunId && Boolean(event.stepId),
     );
 
-    return [...liveEvents, ...dedupedBaseline].filter(
-      (event) => event.workflowRunId === resolvedRunId,
-    );
+    const lastEventIndex = new Map<string, number>();
+
+    mergedEvents.forEach((event, index) => {
+      const key = event.stepId
+        ? `step:${event.stepId}`
+        : `workflow:${event.status ?? event.message ?? index}`;
+      lastEventIndex.set(key, index);
+    });
+
+    const filteredEvents = mergedEvents.filter((event, index) => {
+      const key = event.stepId
+        ? `step:${event.stepId}`
+        : `workflow:${event.status ?? event.message ?? index}`;
+      return lastEventIndex.get(key) === index;
+    });
+
+    return filteredEvents.slice().reverse();
   }, [detailQuery.data, liveEvents, resolvedRunId]);
 
   const latestStatus =
@@ -175,6 +184,14 @@ export function RunMonitorClient({
             ) : null}
             {detailQuery.data ? (
               <dl className="mt-4 grid gap-3 text-sm text-slate-700">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <dt className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                    Workflow
+                  </dt>
+                  <dd className="mt-1 font-medium text-slate-900">
+                    {detailQuery.data.workflow?.name ?? "-"}
+                  </dd>
+                </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <dt className="text-xs uppercase tracking-[0.16em] text-slate-500">
                     ID Run
@@ -272,6 +289,36 @@ export function RunMonitorClient({
             </div>
             <Badge variant="brand">WebSocket</Badge>
           </div>
+
+          {detailQuery.data ? (
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
+                    Status akhir workflow
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">
+                    {detailQuery.data.status === "FAILED"
+                      ? "Workflow selesai: Gagal"
+                      : detailQuery.data.status === "SUCCESS"
+                        ? "Workflow selesai: Berhasil"
+                        : `Workflow ${detailQuery.data.status?.toLowerCase()}`}
+                  </p>
+                </div>
+                <Badge
+                  variant={
+                    detailQuery.data.status === "SUCCESS"
+                      ? "success"
+                      : detailQuery.data.status === "FAILED"
+                        ? "danger"
+                        : "warning"
+                  }
+                >
+                  {detailQuery.data.status}
+                </Badge>
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-5 space-y-3">
             {visibleEvents.map((event, index) => {
