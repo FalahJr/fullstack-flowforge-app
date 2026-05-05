@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Textarea } from "@/components/ui/input";
+import { WorkflowVisualizer } from "@/components/workflow-visualizer";
 import {
   createWorkflow,
   deleteWorkflow,
@@ -20,6 +21,7 @@ import {
   Workflow,
   WorkflowDefinition,
   WorkflowRun,
+  WorkflowsResponse,
 } from "@/services/workflow.service";
 
 const DEFAULT_DEFINITION: WorkflowDefinition = {
@@ -77,10 +79,14 @@ export function WorkflowsPageClient() {
   const [definitionText, setDefinitionText] = useState(formatDefinition());
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [definitionError, setDefinitionError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [search, setSearch] = useState("");
+  const [showVisualizer, setShowVisualizer] = useState(false);
 
   const workflowsQuery = useQuery({
-    queryKey: ["workflows"],
-    queryFn: listWorkflows,
+    queryKey: ["workflows", page, limit, search],
+    queryFn: () => listWorkflows(page, limit, search),
   });
 
   const selectedWorkflowQuery = useQuery({
@@ -90,7 +96,7 @@ export function WorkflowsPageClient() {
   });
 
   useEffect(() => {
-    const firstWorkflow = workflowsQuery.data?.[0];
+    const firstWorkflow = (workflowsQuery.data as WorkflowsResponse)?.data?.[0];
     if (!selectedWorkflowId && firstWorkflow) {
       setSelectedWorkflowId(firstWorkflow.id);
     }
@@ -204,7 +210,13 @@ export function WorkflowsPageClient() {
     },
   });
 
-  const workflows = workflowsQuery.data ?? [];
+  const workflowsData = (workflowsQuery.data as WorkflowsResponse);
+  const workflows = useMemo(
+    () => workflowsData?.data ?? [],
+    [workflowsData?.data]
+  );
+  const pagination = useMemo(() => workflowsData?.meta, [workflowsData?.meta]);
+
   const workflowCards = useMemo(
     () =>
       workflows.map((workflow: Workflow) => {
@@ -222,6 +234,14 @@ export function WorkflowsPageClient() {
   };
 
   const activeRun = workflowRunsQuery.data?.[0];
+
+  const currentDefinition = useMemo(() => {
+    try {
+      return parseDefinition(definitionText);
+    } catch {
+      return undefined;
+    }
+  }, [definitionText]);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -317,6 +337,69 @@ export function WorkflowsPageClient() {
               {statusMessage}
             </div>
           ) : null}
+
+          <Card className="p-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">
+                Cari & Filter
+              </h2>
+              <p className="text-sm text-slate-600">
+                Temukan workflow dengan nama spesifik dan kelola pagination.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Input
+                placeholder="Cari nama workflow..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex-1 min-w-32">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Limit per halaman
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={limit}
+                    onChange={(e) => {
+                      setLimit(Math.max(1, parseInt(e.target.value) || 10));
+                      setPage(1);
+                    }}
+                  />
+                </div>
+                {pagination && (
+                  <div className="flex items-end gap-2 flex-wrap">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setPage(Math.max(1, page - 1))}
+                      disabled={page === 1}
+                      type="button"
+                    >
+                      ← Prev
+                    </Button>
+                    <span className="text-sm text-slate-600 px-2 py-2">
+                      Halaman {page} dari {pagination.totalPages} ({pagination.total} total)
+                    </span>
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        setPage(Math.min(pagination.totalPages, page + 1))
+                      }
+                      disabled={page === pagination.totalPages}
+                      type="button"
+                    >
+                      Next →
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
 
           <div className="space-y-3">
             {workflowsQuery.isLoading ? (
@@ -436,13 +519,50 @@ export function WorkflowsPageClient() {
                   placeholder="Nama workflow"
                 />
 
-                <Textarea
-                  label="Workflow definition JSON"
-                  value={definitionText}
-                  onChange={(e) => setDefinitionText(e.target.value)}
-                  className="font-mono text-xs leading-6"
-                  hint="Gunakan format steps dengan id, type, next, dan config."
-                />
+                <div className="flex gap-2 border-b border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setShowVisualizer(false)}
+                    className={`px-3 py-2 text-sm font-semibold border-b-2 transition ${
+                      !showVisualizer
+                        ? "border-emerald-500 text-emerald-600"
+                        : "border-transparent text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    JSON Editor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowVisualizer(true)}
+                    className={`px-3 py-2 text-sm font-semibold border-b-2 transition ${
+                      showVisualizer
+                        ? "border-emerald-500 text-emerald-600"
+                        : "border-transparent text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    DAG Visualizer
+                  </button>
+                </div>
+
+                {showVisualizer ? (
+                  <div className="rounded-lg border border-slate-200 overflow-hidden" style={{ height: "400px" }}>
+                    {currentDefinition ? (
+                      <WorkflowVisualizer definition={currentDefinition} readOnly />
+                    ) : (
+                      <div className="flex items-center justify-center h-full bg-slate-50 text-slate-600">
+                        <p className="text-sm">JSON tidak valid untuk ditampilkan</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Textarea
+                    label="Workflow definition JSON"
+                    value={definitionText}
+                    onChange={(e) => setDefinitionText(e.target.value)}
+                    className="font-mono text-xs leading-6"
+                    hint="Gunakan format steps dengan id, type, next, dan config."
+                  />
+                )}
 
                 {definitionError ? (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

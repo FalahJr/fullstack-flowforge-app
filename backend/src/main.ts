@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { rateLimit } from "./common/rate-limit.middleware";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -22,6 +23,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Rate limiting (basic, Redis-backed)
+  app.use(rateLimit);
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);

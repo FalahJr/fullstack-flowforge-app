@@ -1,4 +1,3 @@
-docker-compose up --build
 #!/bin/bash
 
 # Detect compose command (docker compose v2 or docker-compose)

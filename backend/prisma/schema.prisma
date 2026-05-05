@@ -46,6 +46,9 @@ model User {
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, role])
 }
 
 model Workflow {
@@ -53,10 +56,15 @@ model Workflow {
   name       String
   tenantId   String
   tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  webhookToken String?        @unique
   versions   WorkflowVersion[]
   runs       WorkflowRun[]
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, createdAt])
 }
 
 model WorkflowVersion {
@@ -69,6 +77,7 @@ model WorkflowVersion {
   updatedAt  DateTime @updatedAt
 
   @@unique([workflowId, version])
+  @@index([workflowId, createdAt])
 }
 
 model WorkflowRun {
@@ -83,6 +92,10 @@ model WorkflowRun {
   stepRuns    StepRun[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+
+  @@index([tenantId, workflowId, status])
+  @@index([tenantId, createdAt])
+  @@index([workflowId, createdAt])
 }
 
 model StepRun {
@@ -101,6 +114,9 @@ model StepRun {
 
   @@index([workflowRunId])
   @@index([tenantId])
+  @@index([tenantId, workflowRunId])
+  @@index([tenantId, status])
+  @@index([workflowRunId, createdAt])
 }
 
 model Log {
@@ -108,4 +124,6 @@ model Log {
   message   String
   level     String
   createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

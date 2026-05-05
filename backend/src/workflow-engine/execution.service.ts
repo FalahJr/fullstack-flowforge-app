@@ -45,6 +45,7 @@ export class ExecutionService {
     const parsed = this.dagParser.parse(definition);
     const stepResults: WorkflowExecutionResult["stepResults"] = [];
     const workflowRun = await this.createWorkflowRun(context);
+    const executionOutputs: Record<string, unknown> = {};
     const remainingDependencies = new Map<string, number>();
 
     for (const stepId of parsed.orderedStepIds) {
@@ -61,7 +62,7 @@ export class ExecutionService {
       const nextLevel: string[] = [];
       const batchResults = await Promise.all(
         currentLevel.map((stepId) =>
-          this.runStep(workflowRun?.id, context, parsed, stepId),
+          this.runStep(workflowRun?.id, context, parsed, stepId, executionOutputs),
         ),
       );
 
@@ -79,12 +80,38 @@ export class ExecutionService {
           break;
         }
 
-        for (const nextId of parsed.nextByStepId[batchResult.stepId]) {
-          const nextRemaining = (remainingDependencies.get(nextId) ?? 0) - 1;
-          remainingDependencies.set(nextId, nextRemaining);
+        // Support conditional steps that return chosenIndex in output
+        const declaredNext = parsed.nextByStepId[batchResult.stepId] ?? [];
+        const chosenIndex =
+          batchResult.output && typeof (batchResult.output as any).chosenIndex === "number"
+            ? (batchResult.output as any).chosenIndex
+            : undefined;
 
-          if (nextRemaining === 0) {
-            nextLevel.push(nextId);
+        if (typeof chosenIndex === "number") {
+          // mark non-chosen branches as ignored and only decrement chosen one
+          for (let i = 0; i < declaredNext.length; i++) {
+            const nextId = declaredNext[i];
+
+            if (i === chosenIndex) {
+              const nextRemaining = (remainingDependencies.get(nextId) ?? 0) - 1;
+              remainingDependencies.set(nextId, nextRemaining);
+
+              if (nextRemaining === 0) {
+                nextLevel.push(nextId);
+              }
+            } else {
+              // mark ignored so it won't be scheduled
+              remainingDependencies.set(nextId, Number.MIN_SAFE_INTEGER);
+            }
+          }
+        } else {
+          for (const nextId of declaredNext) {
+            const nextRemaining = (remainingDependencies.get(nextId) ?? 0) - 1;
+            remainingDependencies.set(nextId, nextRemaining);
+
+            if (nextRemaining === 0) {
+              nextLevel.push(nextId);
+            }
           }
         }
       }
@@ -127,6 +154,7 @@ export class ExecutionService {
     context: WorkflowExecutionContext,
     parsed: ParsedWorkflow,
     stepId: string,
+    executionOutputs: Record<string, unknown>,
   ): Promise<{
     stepId: string;
     success: boolean;
@@ -157,7 +185,16 @@ export class ExecutionService {
         });
       }
 
-      const output = await this.executeWithRetry(step);
+      // Resolve config interpolation from previous step outputs
+      const resolvedStep: WorkflowStepDefinition = {
+        ...step,
+        config: this.resolveStepConfig(step.config ?? {}, executionOutputs),
+      };
+
+      const output = await this.executeWithRetry(resolvedStep);
+
+      // Save output for downstream steps
+      executionOutputs[stepId] = output;
 
       if (stepRun) {
         await this.prisma.stepRun.update({
@@ -218,18 +255,47 @@ export class ExecutionService {
   }
 
   private async executeWithRetry(step: WorkflowStepDefinition) {
-    const maxAttempts = 3;
+    const cfg = step.config ?? {};
+    const maxAttempts =
+      typeof cfg.maxRetries === "number" && cfg.maxRetries >= 0
+        ? Math.floor(cfg.maxRetries)
+        : 3;
+    const initialDelayMs =
+      typeof cfg.retryDelayMs === "number" && cfg.retryDelayMs >= 0
+        ? cfg.retryDelayMs
+        : 1000;
+    const timeoutMs =
+      typeof cfg.timeoutMs === "number" && cfg.timeoutMs > 0
+        ? cfg.timeoutMs
+        : 30000;
+
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        const result = await this.stepExecutor.execute(step);
-        return result.output;
-      } catch (error) {
+        // Execute with per-step timeout
+        const result = await this.executeWithTimeout(
+          this.stepExecutor.execute(step),
+          timeoutMs,
+        );
+
+        return (result as any).output;
+      } catch (error: any) {
         lastError = error;
 
+        // Decide if error is retryable: do not retry on 4xx (except 429)
+        const status = error?.response?.status;
+        const is4xx = typeof status === "number" && status >= 400 && status < 500;
+        const isTooManyReq = status === 429;
+
+        if (is4xx && !isTooManyReq) {
+          // Non-retryable client error
+          break;
+        }
+
         if (attempt < maxAttempts) {
-          await this.sleep(2 ** attempt * 1000);
+          const delay = initialDelayMs * 2 ** (attempt - 1);
+          await this.sleep(delay);
         }
       }
     }
@@ -237,6 +303,22 @@ export class ExecutionService {
     throw lastError instanceof Error
       ? lastError
       : new Error("Eksekusi langkah gagal");
+  }
+
+  private async executeWithTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+    let timeoutHandle: NodeJS.Timeout | null = null;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new Error(`Step execution timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
   }
 
   private async createWorkflowRun(context: WorkflowExecutionContext) {
@@ -281,5 +363,59 @@ export class ExecutionService {
 
   private async sleep(durationMs: number) {
     await new Promise((resolve) => setTimeout(resolve, durationMs));
+  }
+
+  private resolveStepConfig(
+    config: Record<string, unknown>,
+    outputs: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const resolveValue = (val: unknown): unknown => {
+      if (typeof val === "string") {
+        // Replace ${...} patterns
+        return val.replace(/\${([^}]+)}/g, (_, expr: string) => {
+          try {
+            const parts = expr.split(".");
+            const stepId = parts[0];
+            // support both `${A}` and `${A.output.field}`
+            if (!stepId) return "";
+            const rest = parts.slice(1);
+            const base = outputs[stepId];
+            if (base === undefined) return "";
+            if (rest.length === 0) return String(base);
+            // if first token is 'output', skip it
+            const path = rest[0] === "output" ? rest.slice(1) : rest;
+            let cur: any = base as any;
+            for (const p of path) {
+              if (cur == null) return "";
+              cur = cur[p];
+            }
+            return cur == null ? "" : String(cur);
+          } catch (e) {
+            return "";
+          }
+        });
+      }
+
+      if (Array.isArray(val)) {
+        return val.map((v) => resolveValue(v));
+      }
+
+      if (val && typeof val === "object") {
+        const obj: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+          obj[k] = resolveValue(v);
+        }
+        return obj;
+      }
+
+      return val;
+    };
+
+    const resolved: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(config)) {
+      resolved[k] = resolveValue(v);
+    }
+
+    return resolved;
   }
 }

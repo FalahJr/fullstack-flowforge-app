@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { QueryProvider } from "@/lib/query-provider";
 import "./globals.css";
+import "reactflow/dist/style.css";
 
 export const metadata: Metadata = {
   title: "FlowForge Dashboard",

@@ -10,6 +10,7 @@ import {
   Put,
   Req,
   UseGuards,
+  Query,
 } from "@nestjs/common";
 import { Role } from "@prisma/client";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -33,8 +34,8 @@ export class WorkflowsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async findAll(@Req() request: any) {
-    return this.workflowsService.findAll(request.user.tenantId);
+  async findAll(@Req() request: any, @Query() query: any) {
+    return this.workflowsService.findAll(request.user.tenantId, query);
   }
 
   @Get(":id/runs")
@@ -55,6 +56,11 @@ export class WorkflowsController {
       runId,
       request.user.tenantId,
     );
+  }
+
+  @Get("health")
+  health() {
+    return this.workflowsService.health();
   }
 
   @Get(":id")
@@ -96,9 +102,9 @@ export class WorkflowsController {
     return this.workflowsService.remove(id, request.user.tenantId);
   }
 
-  @Get("health")
-  health() {
-    return this.workflowsService.health();
+  @Post(":id/webhook/:token")
+  async webhookTrigger(@Param("id") id: string, @Param("token") token: string, @Body() payload: any) {
+    return this.workflowsService.triggerRunByWebhook(id, token, payload);
   }
 
   @Post(":id/run")

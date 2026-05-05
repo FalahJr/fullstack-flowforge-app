@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { PrismaService } from "../database/prisma.service";
 import { QueueService } from "../queue/queue.service";
 import { DagParser, WorkflowDefinition } from "../workflow-engine/dag.parser";
@@ -28,7 +29,7 @@ export class WorkflowsService {
 
   async create(tenantId: string, dto: CreateWorkflowDto) {
     this.assertTenantId(tenantId);
-
+    const token = randomUUID();
     return this.prisma.workflow.create({
       data: {
         name: dto.name,
@@ -39,6 +40,7 @@ export class WorkflowsService {
             definition: { steps: [] },
           },
         },
+        webhookToken: token,
       },
       include: {
         versions: {
@@ -49,19 +51,72 @@ export class WorkflowsService {
     });
   }
 
-  async findAll(tenantId: string) {
-    this.assertTenantId(tenantId);
+  async triggerRunByWebhook(workflowId: string, token: string, payload?: any) {
+    const workflow = await this.prisma.workflow.findUnique({
+      where: { id: workflowId },
+      include: { versions: { orderBy: { version: "desc" }, take: 1 } },
+    });
 
-    return this.prisma.workflow.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        versions: {
-          orderBy: { version: "desc" },
-          take: 1,
-        },
+    if (!workflow) throw new NotFoundException("Workflow tidak ditemukan");
+    if (!workflow.webhookToken || workflow.webhookToken !== token) {
+      throw new BadRequestException("Webhook token tidak valid");
+    }
+
+    const run = await this.prisma.workflowRun.create({
+      data: {
+        workflowId: workflow.id,
+        tenantId: workflow.tenantId,
+        status: "RUNNING",
+        startedAt: new Date(),
       },
     });
+
+    await this.queue.enqueueWorkflowRun(run.id);
+
+    return run;
+  }
+
+  async findAll(tenantId: string, query: any) {
+    this.assertTenantId(tenantId);
+
+    const page = query?.page ? Math.max(1, Number(query.page)) : 1;
+    const limit = query?.limit ? Math.min(100, Math.max(1, Number(query.limit))) : 20;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.WorkflowWhereInput = { tenantId };
+
+    if (query?.search) {
+      where.name = { contains: String(query.search), mode: "insensitive" } as any;
+    }
+
+    const sortBy = query?.sortBy || "createdAt";
+    const sortOrder = query?.sortOrder === "asc" ? "asc" : "desc";
+
+    const [data, total] = await Promise.all([
+      this.prisma.workflow.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take: limit,
+        include: {
+          versions: {
+            orderBy: { version: "desc" },
+            take: 1,
+          },
+        },
+      }),
+      this.prisma.workflow.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(workflowId: string, tenantId: string) {
@@ -109,12 +164,18 @@ export class WorkflowsService {
     this.assertTenantId(tenantId);
     await this.findOne(workflowId, tenantId);
 
+    const where: Prisma.WorkflowRunWhereInput = {
+      workflowId,
+      tenantId,
+    };
+
+    if (runId !== "latest") {
+      where.id = runId;
+    }
+
     const run = await this.prisma.workflowRun.findFirst({
-      where: {
-        id: runId,
-        workflowId,
-        tenantId,
-      },
+      where,
+      orderBy: { createdAt: "desc" },
       include: {
         workflow: {
           select: {

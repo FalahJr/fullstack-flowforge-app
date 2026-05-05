@@ -6,6 +6,7 @@ interface FailureAnalysisResult {
   issue: string;
   rootCause: string;
   suggestion: string;
+  confidence?: number;
   raw?: string;
 }
 
@@ -92,26 +93,47 @@ export class AiService {
       if (
         typeof parsed === "object" &&
         parsed !== null &&
-        (parsed.issue || parsed.suggestion)
+        typeof parsed.issue === "string" &&
+        typeof parsed.rootCause === "string" &&
+        typeof parsed.suggestion === "string"
       ) {
-        const issue = parsed.issue ? String(parsed.issue).trim() : undefined;
-        const rootCause = parsed.rootCause
-          ? String(parsed.rootCause).trim()
-          : undefined;
-        const suggestion = parsed.suggestion
-          ? String(parsed.suggestion).trim()
-          : undefined;
+        const result: FailureAnalysisResult = {
+          issue: String(parsed.issue).trim(),
+          rootCause: String(parsed.rootCause).trim(),
+          suggestion: String(parsed.suggestion).trim(),
+          confidence:
+            typeof parsed.confidence === "number" ? parsed.confidence : undefined,
+          raw: trimmed,
+        };
 
-        return [issue, rootCause, suggestion]
-          .filter(Boolean)
-          .join(" \n")
-          .trim();
+        return this.formatResult(result);
       }
+
+      this.logger.warn("AI response JSON is missing required fields.");
     } catch {
       // not JSON, continue with raw text fallback
     }
 
+    if (trimmed.length > 500) {
+      this.logger.warn("AI response was too long, truncating raw text output.");
+      return `${trimmed.slice(0, 500)}...`;
+    }
+
     return trimmed;
+  }
+
+  private formatResult(result: FailureAnalysisResult) {
+    const parts = [
+      `Masalah: ${result.issue}`,
+      `Akar masalah: ${result.rootCause}`,
+      `Saran: ${result.suggestion}`,
+    ];
+
+    if (typeof result.confidence === "number") {
+      parts.push(`Confidence: ${Math.max(0, Math.min(1, result.confidence))}`);
+    }
+
+    return parts.join("\n");
   }
 
   private localFallback(step: WorkflowStepDefinition, error: Error | string) {

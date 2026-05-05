@@ -58,8 +58,24 @@ export type WorkflowRunDetail = WorkflowRun & {
   stepRuns: StepRun[];
 };
 
-export async function listWorkflows() {
-  const response = await api.get<Workflow[]>("/workflows");
+export type WorkflowsResponse = {
+  data: Workflow[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+};
+
+export async function listWorkflows(page = 1, limit = 10, search?: string) {
+  const params = new URLSearchParams();
+  params.append("page", page.toString());
+  params.append("limit", limit.toString());
+  if (search && search.trim()) {
+    params.append("search", search.trim());
+  }
+  const response = await api.get<WorkflowsResponse>(`/workflows?${params.toString()}`);
   return response.data;
 }
 

@@ -38,6 +38,26 @@ export class StepExecutor {
       };
     }
 
+    if (step.type === "conditional") {
+      // Simple conditional step: expects config.value and optional config.equals
+      // After interpolation, config.value should be the evaluated value to check
+      const val = step.config?.["value"];
+      const equals = step.config?.["equals"];
+
+      let chosenIndex = 0;
+
+      if (equals !== undefined) {
+        chosenIndex = val === equals ? 0 : 1;
+      } else {
+        chosenIndex = val ? 0 : 1;
+      }
+
+      return {
+        success: true,
+        output: { chosenIndex },
+      };
+    }
+
     throw new Error(`Tipe langkah tidak didukung: ${step.type}`);
   }
 
