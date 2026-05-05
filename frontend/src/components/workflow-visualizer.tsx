@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -9,6 +9,7 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   MiniMap,
+  MarkerType,
 } from 'reactflow';
 import { WorkflowDefinition } from '@/services/workflow.service';
 
@@ -68,7 +69,7 @@ export function WorkflowVisualizer({
           },
           markerEnd: {
             color: '#64748b',
-            type: 'arrowclosed',
+            type: MarkerType.ArrowClosed,
           },
         });
       });
